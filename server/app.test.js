@@ -50,17 +50,13 @@ function runtimeConfig(overrides = {}) {
     appKey,
     host: "127.0.0.1",
     port: 3001,
-    endpoint: "https://rtc.volcengineapi.com",
-    version: "2025-06-01",
-    region: "cn-north-1",
-    service: "rtc",
     env: {},
     credential: { accessKeyId: "ak", secretKey: "sk" },
     ...overrides,
   };
 }
 
-test("loadRuntimeConfig requires complete credentials and selects the API version", () => {
+test("loadRuntimeConfig requires complete credentials", () => {
   const base = { RTC_APP_ID: appId, RTC_APP_KEY: appKey };
   const env = {
     ...base,
@@ -69,11 +65,6 @@ test("loadRuntimeConfig requires complete credentials and selects the API versio
   };
   const config = loadRuntimeConfig(env);
   assert.deepEqual(config.credential, { accessKeyId: "ak", secretKey: "sk" });
-  assert.equal(config.version, "2025-06-01");
-  assert.equal(
-    loadRuntimeConfig({ ...env, VOLCENGINE_RTC_API_VERSION: "2024-12-01" }).version,
-    "2024-12-01"
-  );
   assert.throws(() => loadRuntimeConfig(base), /VOLCENGINE_ACCESS_KEY_ID/);
   for (const partial of [
     { VOLCENGINE_ACCESS_KEY_ID: "ak" },
@@ -152,14 +143,13 @@ test("scene requires a persisted agent user id", () => {
   );
 });
 
-test("OpenAPI invoker signs start and stop with the configured version", async () => {
+test("OpenAPI invoker signs start and stop with the RTC API constants", async () => {
   const requests = [];
   const config = loadRuntimeConfig({
     RTC_APP_ID: appId,
     RTC_APP_KEY: appKey,
     VOLCENGINE_ACCESS_KEY_ID: "ak",
     VOLCENGINE_SECRET_ACCESS_KEY: "sk",
-    VOLCENGINE_RTC_API_VERSION: "2025-06-01",
   });
   const invoke = createOpenApiInvoker(config, async (url, options) => {
     requests.push({ url: new URL(url), options });
@@ -171,7 +161,10 @@ test("OpenAPI invoker signs start and stop with the configured version", async (
     const request = requests.at(-1);
     assert.equal(request.url.searchParams.get("Action"), action);
     assert.equal(request.url.searchParams.get("Version"), "2025-06-01");
+    assert.equal(request.url.origin, "https://rtc.volcengineapi.com");
+    assert.equal(request.options.headers.Host, "rtc.volcengineapi.com");
     assert.match(request.options.headers.Authorization, /^HMAC-SHA256 /);
+    assert.match(request.options.headers.Authorization, /Credential=ak\/\d{8}\/cn-north-1\/rtc\/request/);
     assert.deepEqual(JSON.parse(request.options.body), body);
   }
 });

@@ -18,8 +18,10 @@ const Privileges = require("./token").privileges;
 const START_ACTION = "StartVoiceChat";
 const STOP_ACTION = "StopVoiceChat";
 const ALLOWED_ACTIONS = new Set([START_ACTION, STOP_ACTION]);
-const DEFAULT_VERSION = "2025-06-01";
-const DEFAULT_ENDPOINT = "https://rtc.volcengineapi.com";
+const RTC_API_VERSION = "2025-06-01";
+const RTC_ENDPOINT = "https://rtc.volcengineapi.com";
+const RTC_REGION = "cn-north-1";
+const RTC_SERVICE = "rtc";
 
 function required(value, name) {
   const normalized = value?.trim();
@@ -44,10 +46,6 @@ function loadRuntimeConfig(env = process.env) {
     businessId: env.RTC_BUSINESS_ID?.trim() || undefined,
     host: env.HOST?.trim() || "127.0.0.1",
     port: Number(env.PORT || 3001),
-    endpoint: env.VOLCENGINE_RTC_ENDPOINT?.trim() || DEFAULT_ENDPOINT,
-    version: env.VOLCENGINE_RTC_API_VERSION?.trim() || DEFAULT_VERSION,
-    region: env.VOLCENGINE_RTC_REGION?.trim() || "cn-north-1",
-    service: env.VOLCENGINE_RTC_SERVICE?.trim() || "rtc",
     env,
   };
   if (!Number.isInteger(config.port) || config.port <= 0) {
@@ -198,20 +196,20 @@ function buildStopRequest(runtimeScene, config) {
 function createOpenApiInvoker(config, fetchImpl = fetch) {
   return async (action, body) => {
     const requestData = {
-      region: config.region,
+      region: RTC_REGION,
       method: "POST",
-      params: { Action: action, Version: config.version },
+      params: { Action: action, Version: RTC_API_VERSION },
       headers: {
-        Host: new URL(config.endpoint).host,
+        Host: new URL(RTC_ENDPOINT).host,
         "Content-type": "application/json",
       },
       body,
     };
-    const signer = new Signer(requestData, config.service);
+    const signer = new Signer(requestData, RTC_SERVICE);
     signer.addAuthorization(config.credential);
-    const url = new URL(config.endpoint);
+    const url = new URL(RTC_ENDPOINT);
     url.searchParams.set("Action", action);
-    url.searchParams.set("Version", config.version);
+    url.searchParams.set("Version", RTC_API_VERSION);
     const response = await fetchImpl(url.toString(), {
       method: "POST",
       headers: requestData.headers,
