@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from contextlib import asynccontextmanager
 import json
 import math
 import os
@@ -93,6 +94,20 @@ def deep_clone(value: Any) -> Any:
     return json.loads(json.dumps(value, ensure_ascii=False))
 
 
+def _js_boolean(value: Any) -> bool:
+    if value is None or value is False:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value != 0 and not (isinstance(value, float) and math.isnan(value))
+    if isinstance(value, str):
+        return bool(value)
+    return True
+
+
+def _strict_number_equals(value: Any, expected: int) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value == expected
+
+
 def validate_scene(scene_id: str, value: Any) -> None:
     if not isinstance(value, dict):
         raise ValueError(f"{scene_id}: scene 必须为对象")
@@ -129,10 +144,10 @@ def create_runtime_scenes(scene_definitions: Mapping[str, Any], config: RuntimeC
             "id": scene_id,
             **deep_clone(definition["SceneConfig"]),
             "botName": agent_config["UserId"],
-            "isAvatarScene": bool(avatar.get("Enabled")),
-            "isInterruptMode": voice_config.get("InterruptMode") == 0 and not isinstance(voice_config.get("InterruptMode"), bool),
-            "isVision": bool(vision.get("Enable")),
-            "isScreenMode": snapshot.get("StreamType") == 1 and not isinstance(snapshot.get("StreamType"), bool),
+            "isAvatarScene": _js_boolean(avatar.get("Enabled")),
+            "isInterruptMode": _strict_number_equals(voice_config.get("InterruptMode"), 0),
+            "isVision": _js_boolean(vision.get("Enable")),
+            "isScreenMode": _strict_number_equals(snapshot.get("StreamType"), 1),
         }
         if avatar.get("BackgroundUrl") is not None:
             scene["avatarBgUrl"] = avatar["BackgroundUrl"]
@@ -257,7 +272,15 @@ class AIGCApp(Starlette):
         self.scene_definitions = scene_definitions
         self.invoke_voice_chat = invoke_voice_chat
         self.sessions: dict[str, dict[str, Any]] = {}
-        super().__init__(routes=[Route("/{path:path}", self._handle_request, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])])
+        @asynccontextmanager
+        async def lifespan(_: Starlette):
+            yield
+            await self.stop_active_agents()
+
+        super().__init__(
+            routes=[Route("/{path:path}", self._handle_request, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])],
+            lifespan=lifespan,
+        )
 
     def _create_session(self) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
