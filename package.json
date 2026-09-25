@@ -2,7 +2,7 @@
   "name": "rtc-aigc-demo",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n server,web \"yarn --cwd server dev\" \"yarn --cwd web start\""
+    "dev": "concurrently -k -n server,web \"python -m server.app --reload\" \"yarn --cwd web start\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

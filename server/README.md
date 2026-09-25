@@ -1,28 +1,30 @@
-# Node Server
+# Python Server
 
 ## 启动命令
 
 先按根目录 [README](../README.md#快速开始) 配置凭证和场景。以下命令均从项目根目录执行：
 
 ```shell
-yarn --cwd server install --frozen-lockfile
-yarn --cwd server dev
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r server/requirements-dev.txt
+python -m server.app --reload
 ```
 
 服务端读取项目根目录 `.env.local`，不是 `server/.env.local`；已有进程环境变量优先于文件中的值。
 默认监听 `127.0.0.1:3001`，可通过根目录 `.env.local` 中的 `HOST`、`PORT` 修改。
-单独运行、不使用文件监听时执行 `yarn --cwd server start`。
+单独运行、不使用文件监听时执行 `python -m server.app`。
 
 ## 使用须知
 
-Node 服务启动时会自动读取 `server/scenes` 下的 `.json` 文件作为可用的场景, 并通过接口 API 返回相关信息。
+Python 服务启动时会自动读取 `server/scenes` 下的 `.json` 文件作为可用的场景，并通过接口 API 返回相关信息。
 
 因此，您需要：
 
-1. 在 `server/scenes` 目录下参考其它 JSON 的格式, 自定义创建一个 `xxxx.json` 文件，用于描述您的场景，其中 xxxx 为场景名称。
+1. 在 `server/scenes` 目录下参考其它 JSON 的格式，自定义创建一个 `xxxx.json` 文件，用于描述您的场景，其中 xxxx 为场景名称。
 2. 确保您的 `.json` 文件符合模版定义（可参考 `default.json`），大小写敏感。
-3. 修改场景后重启服务端并刷新页面。`yarn --cwd server dev` 会监听 JS/JSON 变化自动重启，但根目录 `.env.local` 不在监听范围内。
-4. 服务端为每个 session 动态生成 RTC RoomId、UserId、Token 与 VoiceChat TaskId，不写回 JSON；AgentConfig.UserId 必须由场景提供。
+3. 修改场景后重启服务端并刷新页面。`python -m server.app --reload` 会监听 `server/` 下 Python/JSON 变化自动重启，但根目录 `.env.local` 不在监听范围内。
+4. 服务端为每个 session 动态生成 RTC RoomId、UserId、Token 与 VoiceChat TaskId，不写回 JSON；`AgentConfig.UserId` 必须由场景提供。
 
 ## 接口约定
 
@@ -43,11 +45,19 @@ Node 服务启动时会自动读取 `server/scenes` 下的 `.json` 文件作为�
   - 可选 `RTC_BUSINESS_ID` 同时传给 RTC SDK 和 VoiceChat。
 - VoiceChat
   - 参考 [VoiceChat 参数说明](https://docs.volcengine.com/docs/6348/2123348)。
-  - 可通过 [快速跑通 Demo](https://console.volcengine.com/rtc/aigc/run?s=g) 快速获取参数, 跑通后点击右上角 `接入 API` 按钮复制相关代码贴到 JSON 配置文件中即可。
+  - 可通过 [快速跑通 Demo](https://console.volcengine.com/rtc/aigc/run?s=g) 快速获取参数，跑通后点击右上角 `接入 API` 按钮复制相关代码贴到 JSON 配置文件中即可。
+
+## 测试
+
+```shell
+python -m pytest server/test_app.py
+```
+
+测试覆盖配置校验、RTC Token 二进制格式、OpenAPI HMAC-SHA256 签名、运行时场景注入、session 隔离、并发页面、CORS、表单 StopVoiceChat 与退出清理。
 
 ## 注意
 
 - 相关错误会通过服务端接口返回。
 - 服务端只代理 StartVoiceChat/StopVoiceChat，不提供 STS HTTP 接口。
 - 为方便本地开发，服务端 CORS 允许任意 Origin；该配置不适合直接用于生产环境。
-- Node 服务会根据您配置的 `VoiceChat` 中是否存在视觉模型相关的配置返回相关信息给前端页面, 从而控制相关 UI 是否展示。
+- Python 服务会根据您配置的 `VoiceChat` 中是否存在视觉模型相关的配置返回相关信息给前端页面，从而控制相关 UI 是否展示。
