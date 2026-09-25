@@ -6,7 +6,7 @@
 项目代码分为两个并列子项目：
 
 - `web/`：CRA 前端。
-- `server/`：Koa 本地开发服务。
+- `server/`：Python Starlette 本地开发服务。
 
 根目录 `package.json` 只负责编排并同时启动两个子项目。
 
@@ -18,7 +18,7 @@
 
 ## 【必看】环境准备
 
-**Node.js 22，Yarn 1.22.22。**
+**Python 3.10+，Node.js 22，Yarn 1.22.22。**
 
 ### 1. 运行环境
 
@@ -49,9 +49,11 @@
 ```shell
 cp -n .env.example .env.local
 cp -n web/.env.example web/.env.local
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r server/requirements-dev.txt
 yarn install --frozen-lockfile
 yarn --cwd web install --frozen-lockfile
-yarn --cwd server install --frozen-lockfile
 ```
 
 ### 2. 填写凭证和场景
@@ -67,7 +69,7 @@ yarn --cwd server install --frozen-lockfile
 密钥、Token 等 secret 只放在 `.env.local`，场景 JSON 通过 `${ENV_NAME}` 引用。
 
 OpenAPI 使用 `2025-06-01` 版本，接口地址、签名 region 和 service 在
-`server/app.js` 中统一定义，无需填写环境变量。升级接口时需同时核对场景字段。
+`server/app.py` 中统一定义，无需填写环境变量。升级接口时需同时核对场景字段。
 `RTC_BUSINESS_ID` 为可选环境变量，同时传给 RTC SDK 和 VoiceChat，不填则不设置。
 
 服务端会为每个页面 session 分配独立的 SessionID、RoomId、UserId、
@@ -95,18 +97,18 @@ yarn dev
 
 ```shell
 # 分别在两个终端运行
-yarn --cwd server dev
+python -m server.app --reload
 yarn --cwd web start
 
 # 自动化测试
-yarn --cwd server test
+python -m pytest server/test_app.py
 yarn --cwd web test --runInBand
 
 # 前端生产构建，产物位于 web/build/
 yarn --cwd web build
 ```
 
-前端构建不包含 Koa 服务；页面运行时仍需访问服务端。
+前端构建不包含 Python 服务；页面运行时仍需访问服务端。
 如需修改服务端端口，在根目录 `.env.local` 中修改 `PORT`，并同步更新
 `web/.env.local` 的 `REACT_APP_AIGC_PROXY_HOST`。服务端 `HOST` 默认仅监听本机。
 前端端口可在 `web/.env.local` 中设置 `PORT`；避免在运行 `yarn dev` 的 shell 中统一设置
@@ -152,7 +154,7 @@ For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.m
 
 - 2026-09-11
   - 更新 VoiceChat OpenAPI 至 `2025-06-01`，RTC Web SDK 至 `4.68.1`。
-  - 拆分 `web/` 与 `server/`，支持根目录 `yarn dev` 同时启动。
+  - 拆分 `web/` 与 `server/`，支持根目录 `yarn dev` 同时启动；`server/` 后端已改写为 Python。
   - 凭证改为环境变量配置，按页面 session 隔离通话，支持可选 BusinessId。
 
 - 2025-09-30
