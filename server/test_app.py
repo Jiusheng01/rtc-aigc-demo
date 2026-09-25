@@ -18,7 +18,7 @@ from server.app import (
     expand_env_references,
     load_runtime_config,
 )
-from server.signer import sign_headers
+from server.signer import compact_json, sign_headers
 from server.token import AccessToken, Privileges
 
 APP_ID = "012345678901234567890123"
@@ -99,6 +99,12 @@ def test_env_reference_expansion():
     }
     with pytest.raises(ValueError, match="缺少环境变量 MISSING"):
         expand_env_references("${MISSING}", env)
+
+
+def test_json_serialization_matches_node_number_formatting():
+    assert compact_json({"one": 1.0, "negativeZero": -0.0, "small": 0.000001, "tiny": 1e-7}) == (
+        '{"one":1,"negativeZero":0,"small":0.000001,"tiny":1e-7}'
+    )
 
 
 def test_signer_matches_node_implementation():
