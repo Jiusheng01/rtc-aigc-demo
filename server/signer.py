@@ -6,7 +6,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import re
+from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Any, Mapping
 from urllib.parse import quote
@@ -52,8 +54,49 @@ def query_params_to_string(params: Mapping[str, Any]) -> str:
     return "&".join(parts)
 
 
+def _js_number(value: float) -> str:
+    if not math.isfinite(value):
+        return "null"
+    if value == 0:
+        return "0"
+    absolute = abs(value)
+    text = repr(value)
+    if 1e-6 <= absolute < 1e21:
+        if "e" in text.lower():
+            text = format(Decimal(text), "f")
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        return text
+    if "e" not in text.lower():
+        text = format(value, ".15e")
+    mantissa, exponent = re.split("[eE]", text)
+    mantissa = mantissa.rstrip("0").rstrip(".")
+    exp_value = int(exponent)
+    sign = "+" if exp_value >= 0 else "-"
+    return f"{mantissa}e{sign}{abs(exp_value)}"
+
+
 def compact_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return _js_number(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(compact_json(item) for item in value) + "]"
+    if isinstance(value, Mapping):
+        return "{" + ",".join(
+            f"{json.dumps(str(key), ensure_ascii=False)}:{compact_json(item)}"
+            for key, item in value.items()
+        ) + "}"
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def sign_headers(
